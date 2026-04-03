@@ -146,5 +146,49 @@ class DatabaseHelper {
   );
 }
 
+// ---------------- UTILIZADOR ----------------
+
+  Future<Map<String, dynamic>?> getUtilizador() async {
+    final db = await database;
+    final result = await db.query('utilizador', limit: 1);
+    return result.isNotEmpty ? result.first : null;
+  }
+
+  Future<void> createUtilizadorIfNeeded() async {
+    final db = await database;
+    final result = await db.query('utilizador', limit: 1);
+    if (result.isEmpty) {
+      await db.insert('utilizador', {
+        'nome': 'Explorador',
+        'peso': null,
+        'altura': null,
+        'contacto': null,
+      });
+    }
+  }
+
+  Future<void> updateUtilizador(Map<String, dynamic> data) async {
+    final db = await database;
+    await db.update('utilizador', data, where: 'id_utilizador = ?', whereArgs: [data['id_utilizador']]);
+  }
+
+  // ---------------- MÉTRICAS ----------------
+
+  Future<Map<String, dynamic>> getMetricas() async {
+    final db = await database;
+
+    final countResult = await db.rawQuery('SELECT COUNT(*) as total FROM caminhada');
+    final distResult = await db.rawQuery('SELECT SUM(distancia_total) as total FROM caminhada');
+    final tempoResult = await db.rawQuery('SELECT SUM(duracao) as total FROM caminhada');
+    final velResult = await db.rawQuery('SELECT AVG(velocidade_media) as media FROM caminhada');
+
+    return {
+      'total_caminhadas': countResult.first['total'] ?? 0,
+      'distancia_total': (distResult.first['total'] as num?)?.toDouble() ?? 0.0,
+      'tempo_total': (tempoResult.first['total'] as num?)?.toDouble() ?? 0.0,
+      'velocidade_media': (velResult.first['media'] as num?)?.toDouble() ?? 0.0,
+    };
+  }
+
 
 }
