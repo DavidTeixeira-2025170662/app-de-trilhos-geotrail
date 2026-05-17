@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../database/database_helper.dart';
 
 class DetalhesCaminhadaPage extends StatefulWidget {
@@ -61,6 +62,22 @@ String _formatarDuracao(dynamic segundos) {
       appBar: AppBar(
         title: const Text('Detalhes da Caminhada'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Partilhar conquista',
+            onPressed: () {
+              final dist = (c['distancia_total'] as num).toStringAsFixed(2);
+              final tempo = _formatarDuracao(c['duracao']);
+              final vel = (c['velocidade_media'] as num).toStringAsFixed(1);
+              final desnivel = (c['desnivel_acumulado'] as num).toStringAsFixed(0);
+              
+              final msg = "Olha a minha conquista! Fiz um trilho de $dist km em $tempo.\n\nOlha o meu percurso e as minhas métricas:\n• Velocidade Média: $vel km/h\n• Desnível Acumulado: $desnivel m\n\nVem fazer trilhos comigo na GeoTrail!";
+              
+              Share.share(msg);
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [

@@ -19,9 +19,17 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 7) {
+          try {
+            await db.execute('ALTER TABLE trilho ADD COLUMN rota_predefinida TEXT DEFAULT "[]"');
+          } catch (e) {
+            // Se a coluna já existir, ignora o erro
+          }
+        }
+
         if (oldVersion < 6) {
           await db.execute('DROP TABLE IF EXISTS pontos_rota');
           await db.execute('''
@@ -38,24 +46,6 @@ class DatabaseHelper {
 
         if (oldVersion < 5) {
           await db.delete('trilho');
-
-          // 🔥 Carregar imagens dos assets para inserir trails reais
-          try {
-            final img1 = await _loadImageBytes('assets/trilhos/trilho1.jpg');
-            final img2 = await _loadImageBytes('assets/trilhos/trilho2.jpg');
-            final img3 = await _loadImageBytes('assets/trilhos/trilho3.jpg');
-            final img4 = await _loadImageBytes('assets/trilhos/trilho4.jpg');
-
-            await db.insert('trilho', {'nome': 'Trilho da Moreira', 'distancia': 5.2, 'dificuldade': 'Fácil', 'descricao': 'Um trilho natural...', 'coordenadas': '41.3, -7.7', 'desnivel': 120, 'imagem': img1});
-            await db.insert('trilho', {'nome': 'Trilho da Água', 'distancia': 7.8, 'dificuldade': 'Média', 'descricao': 'Trilho pelo rio...', 'coordenadas': '41.4, -7.8', 'desnivel': 200, 'imagem': img2});
-            await db.insert('trilho', {'nome': 'Trilho do Castelo', 'distancia': 10.1, 'dificuldade': 'Difícil', 'descricao': 'Subida intensa...', 'coordenadas': '41.5, -7.9', 'desnivel': 350, 'imagem': img3});
-            await db.insert('trilho', {'nome': 'Trilho da Serra', 'distancia': 3.4, 'dificuldade': 'Fácil', 'descricao': 'Passeio agradável...', 'coordenadas': '41.6, -7.0', 'desnivel': 80, 'imagem': img4});
-          } catch(e) {
-            await db.insert('trilho', {'nome': 'Trilho da Moreira', 'distancia': 5.2, 'dificuldade': 'Fácil', 'descricao': 'Um trilho natural...', 'coordenadas': '41.3, -7.7', 'desnivel': 120});
-            await db.insert('trilho', {'nome': 'Trilho da Água', 'distancia': 7.8, 'dificuldade': 'Média', 'descricao': 'Trilho pelo rio...', 'coordenadas': '41.4, -7.8', 'desnivel': 200});
-            await db.insert('trilho', {'nome': 'Trilho do Castelo', 'distancia': 10.1, 'dificuldade': 'Difícil', 'descricao': 'Subida intensa...', 'coordenadas': '41.5, -7.9', 'desnivel': 350});
-            await db.insert('trilho', {'nome': 'Trilho da Serra', 'distancia': 3.4, 'dificuldade': 'Fácil', 'descricao': 'Passeio agradável...', 'coordenadas': '41.6, -7.0', 'desnivel': 80});
-          }
         }
       },
     );
@@ -82,56 +72,12 @@ class DatabaseHelper {
         descricao TEXT,
         coordenadas TEXT,
         desnivel REAL,
-        imagem BLOB
+        imagem BLOB,
+        rota_predefinida TEXT DEFAULT "[]"
       );
     ''');
 
-    // 🔥 Carregar imagens dos assets
-    final img1 = await _loadImageBytes('assets/trilhos/trilho1.jpg');
-    final img2 = await _loadImageBytes('assets/trilhos/trilho2.jpg');
-    final img3 = await _loadImageBytes('assets/trilhos/trilho3.jpg');
-    final img4 = await _loadImageBytes('assets/trilhos/trilho4.jpg');
-
-    // 🔥 Inserir trilhos com imagens
-    await db.insert('trilho', {
-      'nome': 'Trilho 1',
-      'distancia': 5.2,
-      'dificuldade': 'Fácil',
-      'descricao': '...',
-      'coordenadas': '...',
-      'desnivel': 120,
-      'imagem': img1,
-    });
-
-    await db.insert('trilho', {
-      'nome': 'Trilho 2',
-      'distancia': 7.8,
-      'dificuldade': 'Média',
-      'descricao': '...',
-      'coordenadas': '...',
-      'desnivel': 200,
-      'imagem': img2,
-    });
-
-    await db.insert('trilho', {
-      'nome': 'Trilho 3',
-      'distancia': 10.1,
-      'dificuldade': 'Difícil',
-      'descricao': '...',
-      'coordenadas': '...',
-      'desnivel': 350,
-      'imagem': img3,
-    });
-
-    await db.insert('trilho', {
-      'nome': 'Trilho 4',
-      'distancia': 3.4,
-      'dificuldade': 'Fácil',
-      'descricao': '...',
-      'coordenadas': '...',
-      'desnivel': 80,
-      'imagem': img4,
-    });
+    // A BASE DE DADOS AGORA FICA LIMPA NO ARRANQUE, SEM TRILHOS FALSOS
 
     await db.execute('''
       CREATE TABLE caminhada (
@@ -276,10 +222,38 @@ class DatabaseHelper {
 
   Future<List<Trilho>> getTrilhos() async {
     final db = await database;
-
     final result = await db.query('trilho');
-
     return result.map((e) => Trilho.fromMap(e)).toList();
+  }
+
+  Future<void> insertOrUpdateTrilho(Trilho trilho) async {
+    final db = await database;
+    final result = await db.query('trilho', where: 'id_trilho = ?', whereArgs: [trilho.id]);
+    
+    if (result.isEmpty) {
+      await db.insert('trilho', {
+        'id_trilho': trilho.id,
+        'nome': trilho.nome,
+        'distancia': trilho.distancia,
+        'dificuldade': trilho.dificuldade,
+        'descricao': trilho.descricao,
+        'coordenadas': trilho.coordenadas,
+        'desnivel': trilho.desnivel,
+        'imagem': trilho.imagem,
+        'rota_predefinida': trilho.rotaPredefinida,
+      });
+    } else {
+      await db.update('trilho', {
+        'nome': trilho.nome,
+        'distancia': trilho.distancia,
+        'dificuldade': trilho.dificuldade,
+        'descricao': trilho.descricao,
+        'coordenadas': trilho.coordenadas,
+        'desnivel': trilho.desnivel,
+        'imagem': trilho.imagem,
+        'rota_predefinida': trilho.rotaPredefinida,
+      }, where: 'id_trilho = ?', whereArgs: [trilho.id]);
+    }
   }
 
   Future<int> update(String table, Map<String, dynamic> values,
@@ -292,11 +266,5 @@ class DatabaseHelper {
       whereArgs: whereArgs,
     );
   }
-
-  Future<Uint8List> _loadImageBytes(String path) async {
-    final data = await rootBundle.load(path);
-    return data.buffer.asUint8List();
-  }
-
 
 }

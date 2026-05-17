@@ -10,6 +10,7 @@ class Trilho {
   final String coordenadas;
   final double desnivel;
   final Uint8List imagem;
+  final String rotaPredefinida;
 
   Trilho({
     required this.id,
@@ -20,6 +21,7 @@ class Trilho {
     required this.coordenadas,
     required this.desnivel,
     required this.imagem,
+    this.rotaPredefinida = '[]',
   });
 
   factory Trilho.fromMap(Map<String, dynamic> map) {
@@ -32,6 +34,7 @@ class Trilho {
       coordenadas: map['coordenadas'] ?? "",
       desnivel: map['desnivel']?.toDouble() ?? 0.0,
       imagem: map['imagem'] ?? _transparentPng,
+      rotaPredefinida: map['rota_predefinida'] ?? '[]',
     );
   }
 
